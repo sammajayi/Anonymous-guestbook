@@ -16,7 +16,8 @@ build/
 .env.production.local
 
 # Contract artifacts
-contracts/managed/
+# NOTE: contracts/managed/ IS committed for this project — the compiled
+# circuits, proving/verifying keys and zkir are required deliverables.
 
 # Deployment info
 deployment.json
@@ -58,3 +59,6 @@ temp/
 
 # Midnight wallet sync state (per-network serialized wallet state cache)
 .midnight-wallet-state/
+
+# Local devnet chain data (node/indexer LevelDB)
+midnight-level-db/
