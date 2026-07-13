@@ -2,11 +2,41 @@ pragma language_version >= 0.23;
 
 import CompactStandardLibrary;
 
-// Public ledger state - visible on blockchain
+// ── Public ledger state ──────────────────────────────────────────────
+// Everything below is written to the blockchain and is readable by anyone
+// through the indexer.
+
+// The guestbook message, published for all to see.
 export ledger message: Opaque<"string">;
 
-// Circuit to store a message on the blockchain
-// The message will be publicly visible
+// An anonymous commitment to the author. This is a hash derived from the
+// author's private secret key — it proves posts share a consistent author
+// without ever revealing who that author is.
+export ledger author: Bytes<32>;
+
+// How many messages have been posted so far.
+export ledger postCount: Counter;
+
+// ── Private witness ──────────────────────────────────────────────────
+// Supplied by the local DApp at call time. The secret key lives only on the
+// user's machine; it is fed into the ZK proof but is never part of the
+// public transaction or ledger state.
+witness authorSecretKey(): Bytes<32>;
+
+// Derive a stable, anonymous author id from the private secret. Domain-
+// separated so this hash can't collide with hashes used elsewhere.
+export circuit authorCommitment(sk: Bytes<32>): Bytes<32> {
+    return persistentHash<Vector<2, Bytes<32>>>([pad(32, "guestbook:author:"), sk]);
+}
+
+// Post a message to the guestbook.
 export circuit storeMessage(customMessage: Opaque<"string">): [] {
+    const sk = authorSecretKey();
+
+    // disclose() is deliberate here: we choose to publish the message and the
+    // derived author commitment. The raw secret key `sk` is used only to build
+    // the proof and is NEVER disclosed to the chain.
+    author = disclose(authorCommitment(sk));
     message = disclose(customMessage);
+    postCount.increment(1);
 }
