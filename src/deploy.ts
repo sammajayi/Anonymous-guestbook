@@ -8,6 +8,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { resolveNetwork, getOrCreateSeed, recordDeployment } from './network';
 import { createWallet, persistWalletState, unshieldedToken, type WalletContext } from './wallet';
+import { witnesses, makeInitialPrivateState, PRIVATE_STATE_ID } from './witnesses';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { WebSocket } from 'ws';
 import * as Rx from 'rxjs';
@@ -72,9 +73,9 @@ if (!fs.existsSync(contractPath)) {
 
 const HelloWorld = await import(pathToFileURL(contractPath).href);
 
-const compiledContract = CompiledContract.make('hello-world', HelloWorld.Contract).pipe(
-  CompiledContract.withVacantWitnesses,
-  CompiledContract.withCompiledFileAssets(zkConfigPath),
+const compiledContract = (CompiledContract.make('hello-world', HelloWorld.Contract) as any).pipe(
+  (CompiledContract.withWitnesses as any)(witnesses),
+  (CompiledContract.withCompiledFileAssets as any)(zkConfigPath),
 );
 
 // ─── Providers ─────────────────────────────────────────────────────────────────
@@ -282,6 +283,8 @@ async function main() {
       deployed = await deployContract(providers, {
         compiledContract: compiledContract as any,
         args: [],
+        privateStateId: PRIVATE_STATE_ID,
+        initialPrivateState: makeInitialPrivateState(seed),
       });
       break;
     } catch (err: any) {

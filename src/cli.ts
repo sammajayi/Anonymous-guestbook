@@ -17,6 +17,7 @@ import { levelPrivateStateProvider } from '@midnight-ntwrk/midnight-js-level-pri
 import { NodeZkConfigProvider } from '@midnight-ntwrk/midnight-js-node-zk-config-provider';
 import { resolveNetwork, getOrCreateSeed, getDeployment } from './network';
 import { createWallet, persistWalletState, unshieldedToken, type WalletContext } from './wallet';
+import { witnesses, makeInitialPrivateState, PRIVATE_STATE_ID } from './witnesses';
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
 
 // Enable WebSocket for GraphQL subscriptions
@@ -40,9 +41,9 @@ if (!fs.existsSync(contractPath)) {
 
 const HelloWorld = await import(pathToFileURL(contractPath).href);
 
-const compiledContract = CompiledContract.make('hello-world', HelloWorld.Contract).pipe(
-  CompiledContract.withVacantWitnesses,
-  CompiledContract.withCompiledFileAssets(zkConfigPath),
+const compiledContract = (CompiledContract.make('hello-world', HelloWorld.Contract) as any).pipe(
+  (CompiledContract.withWitnesses as any)(witnesses),
+  (CompiledContract.withCompiledFileAssets as any)(zkConfigPath),
 );
 
 // ─── Providers ─────────────────────────────────────────────────────────────────
@@ -152,6 +153,8 @@ async function main() {
     const deployed: any = await findDeployedContract(providers, {
       compiledContract: compiledContract as any,
       contractAddress: deployment.address,
+      privateStateId: PRIVATE_STATE_ID,
+      initialPrivateState: makeInitialPrivateState(seed),
     });
 
     console.log('  ✅ Connected!\n');
@@ -189,7 +192,10 @@ async function main() {
             if (contractState) {
               const ledgerState = HelloWorld.ledger(contractState.data);
               const message = Buffer.from(ledgerState.message).toString();
-              console.log(`\n  📋 Current message: "${message}"\n`);
+              const author = Buffer.from(ledgerState.author).toString('hex');
+              console.log(`\n  📋 Current message: "${message}"`);
+              console.log(`  🕵  Anonymous author: ${author.slice(0, 16)}…`);
+              console.log(`  🔢 Total posts: ${ledgerState.postCount.toString()}\n`);
             } else {
               console.log('\n  📋 No message found (contract state empty)\n');
             }

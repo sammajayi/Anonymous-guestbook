@@ -16,6 +16,7 @@ import { levelPrivateStateProvider } from '@midnight-ntwrk/midnight-js-level-pri
 import { NodeZkConfigProvider } from '@midnight-ntwrk/midnight-js-node-zk-config-provider';
 import { resolveNetwork, getOrCreateSeed, getDeployment } from '../src/network';
 import { createWallet, persistWalletState } from '../src/wallet';
+import { witnesses, makeInitialPrivateState, PRIVATE_STATE_ID } from '../src/witnesses';
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
 
 // @ts-expect-error wallet sync requires WebSocket
@@ -52,9 +53,9 @@ async function main() {
   const contractPath = path.join(zkConfigPath, 'contract', 'index.js');
   if (!fs.existsSync(contractPath)) fail('Compiled contract missing — run `npm run compile`.');
   const HelloWorld = await import(pathToFileURL(contractPath).href);
-  const compiledContract = CompiledContract.make('hello-world', HelloWorld.Contract).pipe(
-    CompiledContract.withVacantWitnesses,
-    CompiledContract.withCompiledFileAssets(zkConfigPath),
+  const compiledContract = (CompiledContract.make('hello-world', HelloWorld.Contract) as any).pipe(
+    (CompiledContract.withWitnesses as any)(witnesses),
+    (CompiledContract.withCompiledFileAssets as any)(zkConfigPath),
   );
 
   const walletCtx = await createWallet({ network, networkConfig, seed: SEED });
@@ -95,6 +96,8 @@ async function main() {
     await findDeployedContract(providers, {
       contractAddress: deployment.address,
       compiledContract: compiledContract as any,
+      privateStateId: PRIVATE_STATE_ID,
+      initialPrivateState: makeInitialPrivateState(SEED),
     });
   } catch (err: any) {
     await walletCtx.wallet.stop();
