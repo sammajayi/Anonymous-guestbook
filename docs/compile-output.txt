@@ -1,0 +1,33 @@
+=== Compile summary (from a clean `npm run compile`) ===
+
+Command:
+  $ npm run compile
+  > compact compile contracts/hello-world.compact contracts/managed/hello-world
+  Compiling 1 circuits:
+  (exit 0)
+
+The compact 0.5.1 CLI prints only the line above. The circuits, witness,
+and ledger fields it produced (read back from
+contracts/managed/hello-world/compiler/contract-info.json) are:
+
+Circuits:
+  - storeMessage      proof=true   (writes public state, uses the witness)
+  - authorCommitment  pure=true    (one-way hash helper)
+
+Witness (PRIVATE, never disclosed):
+  - authorSecretKey() -> Bytes<32>
+
+Public ledger fields:
+  - message   : Opaque<"string">  (Cell)
+  - author    : Bytes<32>         (Cell)
+  - postCount : Counter
+
+Generated managed/ artifacts (circuits + keys + zkir):
+  contracts/managed/hello-world/compiler/contract-info.json
+  contracts/managed/hello-world/contract/index.d.ts
+  contracts/managed/hello-world/contract/index.js
+  contracts/managed/hello-world/contract/index.js.map
+  contracts/managed/hello-world/keys/storeMessage.prover
+  contracts/managed/hello-world/keys/storeMessage.verifier
+  contracts/managed/hello-world/zkir/storeMessage.bzkir
+  contracts/managed/hello-world/zkir/storeMessage.zkir
