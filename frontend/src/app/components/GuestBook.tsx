@@ -9,7 +9,7 @@ interface PostedMessage {
   postCount: number;
 }
 
-const EXPLORER_URL = "https://explorer.preview.midnight.network";
+const EXPLORER_URL = "https://preview.midnightexplorer.com";
 
 export default function GuestBook({
   walletAPI,
