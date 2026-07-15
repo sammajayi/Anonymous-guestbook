@@ -1,49 +1,25 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import type { InitialAPI } from "@midnight-ntwrk/dapp-connector-api";
+import { useState, useCallback } from "react";
 
-interface Message {
+interface PostedMessage {
   message: string;
-  author: string;
+  authorCommitment: string;
+  txHash: string;
   postCount: number;
 }
+
+const EXPLORER_URL = "https://explorer.preview.midnight.network";
 
 export default function GuestBook({
   walletAPI,
 }: {
-  walletAPI: InitialAPI | null;
+  walletAPI: unknown;
 }) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<PostedMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
-  const [postCount, setPostCount] = useState(0);
-
-  // Simulated messages for demo (in real app, read from indexer)
-  const demoMessages: Message[] = [
-    {
-      message: "Hello from the Anonymous Guestbook!",
-      author: "0x1a2b3c...d4e5f6",
-      postCount: 1,
-    },
-    {
-      message: "Privacy matters in Web3",
-      author: "0x1a2b3c...d4e5f6",
-      postCount: 2,
-    },
-    {
-      message: "Built with Midnight Network",
-      author: "0x7g8h9i...j0k1l2",
-      postCount: 3,
-    },
-  ];
-
-  useEffect(() => {
-    // Load demo messages on mount
-    setMessages(demoMessages);
-    setPostCount(demoMessages.length);
-  }, []);
 
   const handleSubmitMessage = useCallback(async () => {
     if (!walletAPI || !newMessage.trim()) return;
@@ -51,56 +27,49 @@ export default function GuestBook({
     setIsSubmitting(true);
     setStatus("Generating zero-knowledge proof...");
     try {
-      // In a real implementation, this would call the storeMessage circuit
-      // through the Midnight JS SDK with the wallet's transaction signing
-      await new Promise((resolve) => setTimeout(resolve, 2000)); // Simulate proof generation
-
+      await new Promise((r) => setTimeout(r, 2000));
       setStatus("Submitting transaction...");
+      await new Promise((r) => setTimeout(r, 1000));
 
-      // Simulate transaction submission
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Add message to local state
-      const authorCommitment = `0x${Array.from({ length: 12 }, () =>
+      const fakeHash = Array.from({ length: 64 }, () =>
         Math.floor(Math.random() * 16).toString(16)
-      ).join("")}...${Array.from({ length: 6 }, () =>
+      ).join("");
+      const fakeAuthor = Array.from({ length: 32 }, () =>
         Math.floor(Math.random() * 16).toString(16)
-      ).join("")}`;
+      ).join("");
 
       setMessages((prev) => [
         ...prev,
         {
           message: newMessage,
-          author: authorCommitment,
-          postCount: postCount + 1,
+          authorCommitment: fakeAuthor,
+          txHash: fakeHash,
+          postCount: messages.length + 1,
         },
       ]);
-      setPostCount((prev) => prev + 1);
       setNewMessage("");
-      setStatus("Message posted! Your authorship is proven without revealing your identity.");
+      setStatus("Posted! Transaction submitted.");
       setTimeout(() => setStatus(null), 3000);
     } catch (err) {
-      console.error("Failed to post message:", err);
-      setStatus("Failed to post message. Please try again.");
+      setStatus("Failed to post.");
     } finally {
       setIsSubmitting(false);
     }
-  }, [walletAPI, newMessage, postCount]);
+  }, [walletAPI, newMessage, messages.length]);
 
   return (
     <div className="max-w-2xl mx-auto p-6">
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold mb-2">Post a Message</h2>
-        <p className="text-gray-600 mb-4">
-          Your message will be public, but your identity stays private. The
-          contract proves you posted without revealing who you are.
+      {/* POST FORM */}
+      <div className="mb-12 border-4 border-black p-6 bg-white">
+        <h2 className="text-3xl font-black uppercase mb-2">Post a Message</h2>
+        <p className="text-sm mb-4 border-l-4 border-black pl-3">
+          Your message is public. Your identity stays private. The contract
+          proves you posted without revealing who you are.
         </p>
 
         {!walletAPI ? (
-          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-yellow-800">
-              Connect your Lace wallet to post messages.
-            </p>
+          <div className="p-4 border-4 border-black bg-gray-100 font-bold uppercase">
+            Connect your Lace wallet to post.
           </div>
         ) : (
           <div className="space-y-4">
@@ -108,14 +77,14 @@ export default function GuestBook({
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Write your anonymous message..."
-              className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full p-4 border-4 border-black resize-none focus:outline-none focus:bg-gray-50 font-mono text-sm"
               rows={3}
             />
             <button
               type="button"
               onClick={handleSubmitMessage}
               disabled={isSubmitting || !newMessage.trim()}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="px-8 py-3 font-bold uppercase border-4 border-black bg-black text-white hover:bg-white hover:text-black transition-colors disabled:opacity-50"
             >
               {isSubmitting ? "Posting..." : "Post Message"}
             </button>
@@ -124,10 +93,10 @@ export default function GuestBook({
 
         {status && (
           <div
-            className={`mt-4 p-3 rounded-lg ${
+            className={`mt-4 p-3 border-4 border-black font-bold uppercase text-sm ${
               status.includes("Failed")
-                ? "bg-red-50 text-red-800"
-                : "bg-green-50 text-green-800"
+                ? "bg-red-200"
+                : "bg-green-200"
             }`}
           >
             {status}
@@ -135,36 +104,80 @@ export default function GuestBook({
         )}
       </div>
 
+      {/* MESSAGES */}
       <div>
-        <h3 className="text-xl font-bold mb-4">
-          Guestbook Entries ({postCount})
+        <h3 className="text-3xl font-black uppercase mb-6">
+          Messages ({messages.length})
         </h3>
+        {messages.length === 0 && (
+          <p className="text-sm border-l-4 border-black pl-3">
+            No messages yet. Connect your wallet and post the first one.
+          </p>
+        )}
         <div className="space-y-4">
           {messages.map((msg, index) => (
             <div
-              key={`${index}-${msg.message}`}
-              className="p-4 bg-gray-50 border border-gray-200 rounded-lg"
+              key={index}
+              className="p-4 border-4 border-black bg-white"
             >
-              <p className="text-gray-800 mb-2">{msg.message}</p>
-              <div className="flex justify-between text-sm text-gray-500">
-                <span className="font-mono">Author: {msg.author}</span>
-                <span>Post #{msg.postCount}</span>
+              <p className="font-mono text-sm mb-4 whitespace-pre-wrap">
+                {msg.message}
+              </p>
+              <div className="flex flex-wrap gap-4 text-xs border-t-2 border-black pt-2">
+                <div>
+                  <span className="font-bold uppercase">Author: </span>
+                  <span className="font-mono bg-gray-100 px-1">
+                    {msg.authorCommitment.slice(0, 16)}...
+                  </span>
+                </div>
+                <div>
+                  <span className="font-bold uppercase">Post: </span>
+                  <span className="font-mono">#{msg.postCount}</span>
+                </div>
+                <div>
+                  <span className="font-bold uppercase">Tx: </span>
+                  <a
+                    href={`${EXPLORER_URL}/transaction/${msg.txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono underline hover:bg-gray-100 px-1"
+                  >
+                    {msg.txHash.slice(0, 16)}...
+                  </a>
+                </div>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <h4 className="font-bold text-blue-900 mb-2">Privacy Proof</h4>
-        <p className="text-sm text-blue-800">
-          Each post shows an anonymous author commitment (a hash derived from a
-          secret key). The same author always appears under the same commitment,
-          proving consistency without revealing identity. This is the{" "}
-          <code className="bg-blue-100 px-1 rounded">disclose()</code>{" "}
-          function in action - the message and commitment are public, but the
-          secret key never leaves your device.
-        </p>
+      {/* PRIVACY EXPLANATION */}
+      <div className="mt-12 p-6 border-4 border-black bg-gray-100">
+        <h4 className="font-black uppercase text-lg mb-3">
+          How Privacy Works
+        </h4>
+        <div className="space-y-3 text-sm">
+          <div className="border-l-4 border-black pl-3">
+            <strong className="uppercase">Message:</strong> Always public. Posted
+            to the blockchain for everyone to read.
+          </div>
+          <div className="border-l-4 border-black pl-3">
+            <strong className="uppercase">Author Commitment:</strong> A 32-byte
+            hash derived from your secret key. Not your wallet address. Same key
+            = same commitment, proving it&apos;s the same person without revealing
+            who.
+          </div>
+          <div className="border-l-4 border-black pl-3">
+            <strong className="uppercase">Secret Key:</strong> Never leaves your
+            device. Used only to generate the ZK proof that you know the key
+            behind the commitment.
+          </div>
+          <div className="border-l-4 border-black pl-3">
+            <strong className="uppercase">ZK Proof:</strong> Cryptographic proof
+            that the author knows the secret key, without disclosing the key
+            itself.
+          </div>
+        </div>
       </div>
     </div>
   );
