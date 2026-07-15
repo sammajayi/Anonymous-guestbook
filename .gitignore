@@ -65,3 +65,8 @@ midnight-level-db/
 
 # OpenCode MCP config (personal)
 opencode.json
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/

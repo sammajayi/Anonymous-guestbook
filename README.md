@@ -68,6 +68,8 @@ authors produce different commitments.
 Requirements: Node 22, Docker (with Compose v2), and the Compact compiler
 (`compact 0.5.x`; the contract targets language version 0.23).
 
+### Backend (Smart Contract)
+
 ```bash
 npm install
 npm run setup          # start local devnet, compile, deploy to the devnet
@@ -84,6 +86,18 @@ devnet:
    `contracts/managed/hello-world/` (circuits + proving/verifying keys).
 3. `npm run deploy` — derives the genesis-seed wallet, registers UTXOs for DUST,
    deploys the contract, writes `.midnight-state.json`.
+
+### Frontend (Next.js DApp)
+
+```bash
+cd frontend
+npm install
+npm run dev            # starts on http://localhost:3000
+```
+
+The frontend connects to the Midnight Lace wallet and calls the guestbook
+circuit. You'll need the [Lace wallet extension](https://chromewebstore.google.com/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk)
+installed in your browser.
 
 ### Interacting with the contract
 
@@ -147,6 +161,13 @@ midnight-setup/
 │   └── guestbook.test.ts        # offline privacy + behaviour tests
 ├── scripts/
 │   └── e2e-check.ts             # smoke + read-back
+├── frontend/                    # Next.js DApp with Lace wallet
+│   └── src/app/
+│       ├── page.tsx             # main page with GuestBook
+│       ├── layout.tsx           # app layout
+│       └── components/
+│           ├── ConnectWalletButton.tsx  # Lace wallet connect/disconnect
+│           └── GuestBook.tsx            # circuit caller + UI
 ├── docker-compose.yml           # node + indexer + proof-server
 └── package.json
 ```
