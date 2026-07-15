@@ -111,7 +111,7 @@ screenshots below.
 | What | File |
 |---|---|
 | Successful compile (circuits listed) | `docs/compile.png` |
-| Contract deployed to Preprod with address | `docs/deploy.png` |
+| Contract deployed with address | `docs/deploy.png` |
 
 ## Available scripts
 
