@@ -108,10 +108,13 @@ screenshots below.
 
 ## Screenshots
 
-| What | File |
-|---|---|
-| Successful compile (circuits listed) | `docs/compile.png` |
-| Contract deployed with address | `docs/deploy.png` |
+### Successful compile (circuits listed)
+
+![Compile output](docs/compile.png)
+
+### Contract deployed with address
+
+![Deploy output](docs/deploy.png)
 
 ## Available scripts
 
