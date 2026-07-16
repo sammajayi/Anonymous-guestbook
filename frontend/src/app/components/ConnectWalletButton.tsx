@@ -23,7 +23,6 @@ export default function ConnectWalletButton({
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Restore connection on mount
   useEffect(() => {
     const restore = async () => {
       const saved = localStorage.getItem(WALLET_STORAGE_KEY);
