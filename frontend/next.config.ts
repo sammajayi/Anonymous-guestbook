@@ -2,9 +2,6 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
-  // Multiple lockfiles exist above this dir; pin the root so relative aliases
-  // and file tracing resolve against the frontend, not an inferred parent.
-  outputFileTracingRoot: __dirname,
   turbopack: {
     // Turbopack resolves alias string values relative to the project root, so
     // this must stay a project-relative path — an absolute path gets a "."
