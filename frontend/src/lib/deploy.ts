@@ -142,13 +142,27 @@ export function getOrCreateSeed(): string {
   return seed;
 }
 
-export function computeAuthorCommitment(seed: string): string {
-  const bytes = new TextEncoder().encode(seed);
-  const hash = new Uint8Array(32);
+// Derive the 32-byte author secret key from the wallet seed. This is the value
+// fed into the contract's authorSecretKey witness, so deploy, postMessage, and
+// the displayed commitment must all derive it identically.
+export function deriveAuthorSecretKey(seed: string): Uint8Array {
+  const seedBytes = new TextEncoder().encode(seed);
+  const authorSecretKey = new Uint8Array(32);
   for (let i = 0; i < 32; i++) {
-    hash[i] = bytes[i % bytes.length] ^ ((i * 13 + 7) & 0xff);
+    authorSecretKey[i] = seedBytes[i % seedBytes.length] ^ ((i * 13 + 7) & 0xff);
   }
-  return Array.from(hash).map(b => b.toString(16).padStart(2, '0')).join('');
+  return authorSecretKey;
+}
+
+// Compute the real author commitment the contract writes on-chain, by running
+// the derived secret key through the compiled contract's pureCircuits. This
+// matches the `author` ledger value exactly (persistentHash with domain
+// separation), rather than a look-alike placeholder.
+export async function computeAuthorCommitment(seed: string): Promise<string> {
+  const contractModule = await import('../contracts/guestbook/contract/index.js');
+  const sk = deriveAuthorSecretKey(seed);
+  const commitment: Uint8Array = contractModule.pureCircuits.authorCommitment(sk);
+  return Array.from(commitment).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 export async function deployGuestbook(walletAPI: any): Promise<string> {
@@ -209,11 +223,7 @@ export async function deployGuestbook(walletAPI: any): Promise<string> {
   };
 
   const seed = getOrCreateSeed();
-  const authorSecretKey = new Uint8Array(32);
-  const seedBytes = new TextEncoder().encode(seed);
-  for (let i = 0; i < 32; i++) {
-    authorSecretKey[i] = seedBytes[i % seedBytes.length] ^ ((i * 13 + 7) & 0xff);
-  }
+  const authorSecretKey = deriveAuthorSecretKey(seed);
 
   const providers = {
     privateStateProvider: createLocalStoragePrivateStateProvider(),
@@ -295,11 +305,7 @@ export async function postMessage(
   };
 
   const seed = getOrCreateSeed();
-  const authorSecretKey = new Uint8Array(32);
-  const seedBytes = new TextEncoder().encode(seed);
-  for (let i = 0; i < 32; i++) {
-    authorSecretKey[i] = seedBytes[i % seedBytes.length] ^ ((i * 13 + 7) & 0xff);
-  }
+  const authorSecretKey = deriveAuthorSecretKey(seed);
 
   const providers = {
     privateStateProvider: createLocalStoragePrivateStateProvider(),

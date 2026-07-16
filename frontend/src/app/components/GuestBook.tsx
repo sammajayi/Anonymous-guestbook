@@ -87,7 +87,7 @@ export default function GuestBook({
     setStatus("Generating zero-knowledge proof...");
     try {
       const seed = getOrCreateSeed();
-      const authorCommitment = computeAuthorCommitment(seed);
+      const authorCommitment = await computeAuthorCommitment(seed);
 
       setStatus("Submitting transaction...");
       const { txHash } = await postMessage(walletAPI, contractAddress, newMessage);
