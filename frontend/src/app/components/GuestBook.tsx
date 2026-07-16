@@ -235,7 +235,7 @@ export default function GuestBook({
                 <div>
                   <span className="font-bold uppercase">Tx: </span>
                   <a
-                    href={`${EXPLORER_URL}/transaction/${msg.txHash}`}
+                    href={`${EXPLORER_URL}/transactions/${msg.txHash.startsWith("0x") ? msg.txHash : `0x${msg.txHash}`}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-mono underline hover:bg-gray-100 px-1"

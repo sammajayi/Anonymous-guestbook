@@ -18,7 +18,7 @@ pseudonymous community feeds where you want accountability without surveillance.
 
 ## Public state vs private witness
 
-This is the heart of the contract (`contracts/hello-world.compact`):
+This is the heart of the contract (`contracts/guestbook.compact`):
 
 ```compact
 // PUBLIC ledger state — written to the blockchain, readable by anyone:
@@ -82,8 +82,8 @@ devnet:
 
 1. `docker compose up -d --wait` — starts node, indexer, and proof-server and
    blocks until all three are healthy.
-2. `npm run compile` — compiles `contracts/hello-world.compact` to
-   `contracts/managed/hello-world/` (circuits + proving/verifying keys).
+2. `npm run compile` — compiles `contracts/guestbook.compact` to
+   `contracts/managed/guestbook/` (circuits + proving/verifying keys).
 3. `npm run deploy` — derives the genesis-seed wallet, registers UTXOs for DUST,
    deploys the contract, writes `.midnight-state.json`.
 
@@ -148,8 +148,8 @@ screenshots below.
 ```
 midnight-setup/
 ├── contracts/
-│   ├── hello-world.compact      # the guestbook contract (public state + witness)
-│   └── managed/hello-world/     # compiled circuits, keys, zkir (committed)
+│   ├── guestbook.compact        # the guestbook contract (public state + witness)
+│   └── managed/guestbook/       # compiled circuits, keys, zkir (committed)
 ├── src/
 │   ├── witnesses.ts             # witness implementation + private state
 │   ├── network.ts               # network selection + state file
@@ -174,7 +174,7 @@ midnight-setup/
 
 ## How the pieces fit
 
-- **`contracts/hello-world.compact`** declares the public ledger fields, the
+- **`contracts/guestbook.compact`** declares the public ledger fields, the
   `authorSecretKey` witness, and the `storeMessage` circuit that uses
   `disclose()` deliberately.
 - **`src/witnesses.ts`** implements the witness in TypeScript. It derives the

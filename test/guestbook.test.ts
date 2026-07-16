@@ -28,7 +28,7 @@ const contractPath = path.resolve(
   '..',
   'contracts',
   'managed',
-  'hello-world',
+  'guestbook',
   'contract',
   'index.js',
 );

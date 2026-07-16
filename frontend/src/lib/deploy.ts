@@ -165,10 +165,10 @@ export async function deployGuestbook(walletAPI: any): Promise<string> {
   const { CompiledContract } = await import('@midnight-ntwrk/compact-js');
   const { Transaction, Binding, Proof, SignatureEnabled } = await import('@midnight-ntwrk/midnight-js-protocol/ledger');
   const { toHex, fromHex } = await import('@midnight-ntwrk/midnight-js-protocol/compact-runtime');
-  const contractModule = await import('../contracts/hello-world/contract/index.js');
+  const contractModule = await import('../contracts/guestbook/contract/index.js');
 
   const compiledContract = CompiledContract.withWitnesses(
-    CompiledContract.make('hello-world', contractModule.Contract),
+    CompiledContract.make('guestbook', contractModule.Contract),
     guestbookWitnesses,
   );
 
@@ -176,7 +176,7 @@ export async function deployGuestbook(walletAPI: any): Promise<string> {
   const indexerUri = assertValidUri(config.indexerUri, 'indexer URI');
   const indexerWsUri = assertValidUri(config.indexerWsUri, 'indexer WebSocket URI');
   const proofServerUri = assertValidUri(config.proverServerUri || 'http://127.0.0.1:6300', 'proof server URI');
-  const zkConfigUrl = typeof window !== 'undefined' ? `${window.location.origin}/contracts/hello-world` : '/contracts/hello-world';
+  const zkConfigUrl = typeof window !== 'undefined' ? `${window.location.origin}/contracts/guestbook` : '/contracts/guestbook';
   const zkConfigProvider = new FetchZkConfigProvider(zkConfigUrl, fetch.bind(window));
 
   const walletProvider = {
@@ -252,17 +252,17 @@ export async function postMessage(
   const { CompiledContract } = await import('@midnight-ntwrk/compact-js');
   const { Transaction, Binding, Proof, SignatureEnabled } = await import('@midnight-ntwrk/midnight-js-protocol/ledger');
   const { toHex, fromHex } = await import('@midnight-ntwrk/midnight-js-protocol/compact-runtime');
-  const contractModule = await import('../contracts/hello-world/contract/index.js');
+  const contractModule = await import('../contracts/guestbook/contract/index.js');
 
   const compiledContract = CompiledContract.withWitnesses(
-    CompiledContract.make('hello-world', contractModule.Contract),
+    CompiledContract.make('guestbook', contractModule.Contract),
     guestbookWitnesses,
   );
   const shieldedAddresses = await walletAPI.getShieldedAddresses();
   const indexerUri = assertValidUri(config.indexerUri, 'indexer URI');
   const indexerWsUri = assertValidUri(config.indexerWsUri, 'indexer WebSocket URI');
   const proofServerUri = assertValidUri(config.proverServerUri || 'http://127.0.0.1:6300', 'proof server URI');
-  const zkConfigUrl = typeof window !== 'undefined' ? `${window.location.origin}/contracts/hello-world` : '/contracts/hello-world';
+  const zkConfigUrl = typeof window !== 'undefined' ? `${window.location.origin}/contracts/guestbook` : '/contracts/guestbook';
   const zkConfigProvider = new FetchZkConfigProvider(zkConfigUrl, fetch.bind(window));
 
   const walletProvider = {

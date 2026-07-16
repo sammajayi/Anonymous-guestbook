@@ -78,7 +78,7 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('storeMessage',
                                      'argument 1 (as invoked from Typescript)',
-                                     'hello-world.compact line 33 char 1',
+                                     'guestbook.compact line 33 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
@@ -181,7 +181,7 @@ export class Contract {
     if (!(result_0.buffer instanceof ArrayBuffer && result_0.BYTES_PER_ELEMENT === 1 && result_0.length === 32)) {
       __compactRuntime.typeError('authorSecretKey',
                                  'return value',
-                                 'hello-world.compact line 24 char 1',
+                                 'guestbook.compact line 24 char 1',
                                  'Bytes<32>',
                                  result_0)
     }
@@ -310,7 +310,7 @@ export const pureCircuits = {
     if (!(sk_0.buffer instanceof ArrayBuffer && sk_0.BYTES_PER_ELEMENT === 1 && sk_0.length === 32)) {
       __compactRuntime.typeError('authorCommitment',
                                  'argument 1',
-                                 'hello-world.compact line 28 char 1',
+                                 'guestbook.compact line 28 char 1',
                                  'Bytes<32>',
                                  sk_0)
     }
