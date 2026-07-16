@@ -21,27 +21,35 @@ pseudonymous community feeds where you want accountability without surveillance.
 This is the heart of the contract (`contracts/guestbook.compact`):
 
 ```compact
+// One guestbook entry, stored publicly on-chain.
+struct GuestbookEntry { message: Opaque<"string">, author: Bytes<32> }
+
 // PUBLIC ledger state — written to the blockchain, readable by anyone:
-export ledger message: Opaque<"string">;   // the posted message
-export ledger author:  Bytes<32>;           // anonymous author commitment
-export ledger postCount: Counter;           // number of posts
+export ledger entries: List<GuestbookEntry>;   // full history, newest-first
+export ledger postCount: Counter;              // number of posts
 
 // PRIVATE witness — provided by the caller's local machine, never published:
 witness authorSecretKey(): Bytes<32>;
 
 export circuit storeMessage(customMessage: Opaque<"string">): [] {
     const sk = authorSecretKey();                       // private, stays local
-    author  = disclose(authorCommitment(sk));           // deliberately public
-    message = disclose(customMessage);                  // deliberately public
+    entries.pushFront(disclose(GuestbookEntry {         // deliberately public
+        message: customMessage,
+        author: authorCommitment(sk),
+    }));
     postCount.increment(1);
 }
 ```
+
+The contract keeps the **full history** of posts in an on-chain `List`, so every
+visitor reads the same shared feed straight from the ledger — no server, no
+per-browser storage. `pushFront` prepends, so entries are newest-first.
 
 | | **Public ledger state** | **Private witness** |
 |---|---|---|
 | Where it lives | On-chain, in the contract's ledger | Only on the caller's machine (private state) |
 | Who can read it | Anyone, via the indexer | Nobody but the caller |
-| In this contract | `message`, `author`, `postCount` | `authorSecretKey()` → the 32-byte secret |
+| In this contract | `entries` (message + author), `postCount` | `authorSecretKey()` → the 32-byte secret |
 | Visibility rule | Included in the transaction | Feeds the ZK proof, never disclosed |
 
 **How `disclose()` is used deliberately.** In Compact, everything derived from a
@@ -51,6 +59,8 @@ explicitly wrap it in `disclose()`. We disclose exactly two things:
 1. `message` — the post is meant to be public.
 2. `authorCommitment(sk)` — a **one-way hash** of the secret key
    (`persistentHash(["guestbook:author:", sk])`), not the key itself.
+
+Both are wrapped together in the `GuestbookEntry` appended to `entries`.
 
 The raw secret `sk` is **never** wrapped in `disclose()`, so it never reaches
 the chain. It is used only to build the zero-knowledge proof that the author
@@ -98,6 +108,21 @@ npm run dev            # starts on http://localhost:3000
 The frontend connects to the Midnight Lace wallet and calls the guestbook
 circuit. You'll need the [Lace wallet extension](https://chromewebstore.google.com/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk)
 installed in your browser.
+
+**Shared guestbook (one contract for everyone).** The DApp reads the whole feed
+straight from chain, so every visitor sees the same messages. Point it at a
+single canonical contract with an environment variable:
+
+```bash
+# frontend/.env.local (local) or Vercel project env (production)
+NEXT_PUBLIC_GUESTBOOK_ADDRESS=<the deployed contract address>
+```
+
+When this is set, the deploy/enter-address UI is hidden and everyone reads and
+writes that one contract. When it's **absent**, the DApp falls back to the
+deploy flow so you can deploy the contract straight from the frontend — then set
+the printed address as `NEXT_PUBLIC_GUESTBOOK_ADDRESS` to lock it in. Reads use
+the preview indexer directly, so the feed loads even before a wallet connects.
 
 ### Interacting with the contract
 

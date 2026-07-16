@@ -26,8 +26,12 @@ export type Circuits<PS> = {
 }
 
 export type Ledger = {
-  readonly message: string;
-  readonly author: Uint8Array;
+  entries: {
+    isEmpty(): boolean;
+    length(): bigint;
+    head(): { is_some: boolean, value: { message: string, author: Uint8Array } };
+    [Symbol.iterator](): Iterator<{ message: string, author: Uint8Array }>
+  };
   readonly postCount: bigint;
 }
 

@@ -1,6 +1,56 @@
 const CONTRACT_ADDRESS_KEY = 'guestbook-contract-address';
 const WALLET_SEED_KEY = 'midnight-guestbook-seed';
 
+// Preview-network indexer URIs. Reads (loading the shared feed) happen before a
+// wallet is connected, so we can't get these from walletAPI.getConfiguration().
+// Hardcode the known preview endpoints so the feed loads for logged-out visitors.
+export const PREVIEW_INDEXER_URI = 'https://indexer.preview.midnight.network/api/v4/graphql';
+export const PREVIEW_INDEXER_WS_URI = 'wss://indexer.preview.midnight.network/api/v4/graphql/ws';
+
+// The single canonical contract every visitor reads from and writes to. Set in
+// Vercel as NEXT_PUBLIC_GUESTBOOK_ADDRESS after the contract is deployed once.
+// When present, the app hides the deploy UI and uses this address for everyone.
+export function getCanonicalContractAddress(): string | null {
+  return process.env.NEXT_PUBLIC_GUESTBOOK_ADDRESS || null;
+}
+
+// A single guestbook entry as read from on-chain ledger state.
+export interface FeedEntry {
+  message: string;
+  author: string; // hex-encoded 32-byte author commitment
+}
+
+// Read the shared guestbook feed directly from chain. No wallet needed — the
+// indexer public data provider is read-only, so the feed loads for every
+// visitor, even before connecting Lace. Entries are newest-first because the
+// contract appends with pushFront.
+export async function readGuestbook(contractAddress: string): Promise<FeedEntry[]> {
+  if (!contractAddress) return [];
+  const { indexerPublicDataProvider } = await import(
+    '@midnight-ntwrk/midnight-js-indexer-public-data-provider'
+  );
+  const { ledger } = await import('../contracts/guestbook/contract/index.js');
+
+  const publicDataProvider = indexerPublicDataProvider(
+    PREVIEW_INDEXER_URI,
+    PREVIEW_INDEXER_WS_URI,
+  );
+  const state = await publicDataProvider.queryContractState(contractAddress);
+  if (!state) return []; // contract not found / not yet indexed
+
+  const decoded: any = ledger(state.data);
+  const feed: FeedEntry[] = [];
+  for (const entry of decoded.entries) {
+    feed.push({
+      message: entry.message,
+      author: Array.from(entry.author as Uint8Array)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join(''),
+    });
+  }
+  return feed;
+}
+
 // The wallet's getConfiguration() can return undefined/empty URIs if the user
 // hasn't finished setting up their network in Lace. Passing those into the
 // providers throws an opaque "Failed to construct 'URL': Invalid URL". Validate

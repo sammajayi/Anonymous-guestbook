@@ -56,28 +56,34 @@
   ],
   "ledger": [
     {
-      "name": "message",
+      "name": "entries",
       "index": 0,
       "exported": true,
-      "storage": "Cell",
+      "storage": "List",
       "type": {
-        "type-name": "Opaque",
-        "tsType": "string"
-      }
-    },
-    {
-      "name": "author",
-      "index": 1,
-      "exported": true,
-      "storage": "Cell",
-      "type": {
-        "type-name": "Bytes",
-        "length": 32
+        "type-name": "Struct",
+        "name": "GuestbookEntry",
+        "elements": [
+          {
+            "name": "message",
+            "type": {
+              "type-name": "Opaque",
+              "tsType": "string"
+            }
+          },
+          {
+            "name": "author",
+            "type": {
+              "type-name": "Bytes",
+              "length": 32
+            }
+          }
+        ]
       }
     },
     {
       "name": "postCount",
-      "index": 2,
+      "index": 1,
       "exported": true,
       "storage": "Counter"
     }

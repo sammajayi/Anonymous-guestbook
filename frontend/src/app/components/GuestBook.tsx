@@ -4,49 +4,73 @@ import { useState, useCallback, useEffect } from "react";
 import {
   getStoredContractAddress,
   setStoredContractAddress,
-  getStoredMessages,
-  setStoredMessages,
+  getCanonicalContractAddress,
   getOrCreateSeed,
   deployGuestbook,
   postMessage,
   computeAuthorCommitment,
+  readGuestbook,
+  type FeedEntry,
 } from "../../lib/deploy";
-
-interface PostedMessage {
-  message: string;
-  authorCommitment: string;
-  txHash: string;
-  postCount: number;
-}
-
-const EXPLORER_URL = "https://preview.midnightexplorer.com";
 
 export default function GuestBook({
   walletAPI,
 }: {
   walletAPI: any;
 }) {
-  const [messages, setMessages] = useState<PostedMessage[]>([]);
+  const [entries, setEntries] = useState<FeedEntry[]>([]);
+  const [myCommitment, setMyCommitment] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
+  const [isLoadingFeed, setIsLoadingFeed] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [contractAddress, setContractAddressState] = useState<string | null>(null);
   const [manualAddress, setManualAddress] = useState("");
   const [showManualInput, setShowManualInput] = useState(false);
 
-  useEffect(() => {
-    const saved = getStoredContractAddress();
-    if (saved) {
-      setContractAddressState(saved);
-      setMessages(getStoredMessages(saved));
+  // The canonical address (from NEXT_PUBLIC_GUESTBOOK_ADDRESS) makes this a
+  // single shared guestbook: everyone reads and writes the same contract, and
+  // the deploy UI is hidden. Without it, fall back to the deploy/enter-address
+  // flow so the contract can be deployed from the frontend.
+  const canonicalAddress = getCanonicalContractAddress();
+
+  // Load the shared feed from chain for a given contract. Works without a
+  // connected wallet — reads go through the public indexer.
+  const loadFeed = useCallback(async (address: string) => {
+    setIsLoadingFeed(true);
+    try {
+      const feed = await readGuestbook(address);
+      setEntries(feed);
+    } catch (err: any) {
+      console.error("Failed to load feed:", err);
+      setStatus(`Could not load messages: ${err?.message || "unknown error"}`);
+    } finally {
+      setIsLoadingFeed(false);
     }
   }, []);
 
-  // Persist messages per contract so they survive a page refresh.
+  // On mount, resolve which contract to use and load its feed from chain.
   useEffect(() => {
-    if (contractAddress) setStoredMessages(contractAddress, messages);
-  }, [messages, contractAddress]);
+    const address = canonicalAddress || getStoredContractAddress();
+    if (address) {
+      setContractAddressState(address);
+      loadFeed(address);
+    }
+  }, [canonicalAddress, loadFeed]);
+
+  // Derive the viewer's own author commitment so they can spot their own posts.
+  useEffect(() => {
+    (async () => {
+      const seed = getOrCreateSeed();
+      if (!seed) return;
+      try {
+        setMyCommitment(await computeAuthorCommitment(seed));
+      } catch {
+        /* non-fatal — just won't highlight own posts */
+      }
+    })();
+  }, []);
 
   const handleDeploy = useCallback(async () => {
     if (!walletAPI) return;
@@ -55,10 +79,9 @@ export default function GuestBook({
     setStatus("Deploying contract to preview network...");
     try {
       const address = await deployGuestbook(walletAPI);
-      setMessages(getStoredMessages(address));
       setContractAddressState(address);
-      setStatus("Contract deployed successfully!");
-      setTimeout(() => setStatus(null), 3000);
+      setStatus(`Contract deployed! Set NEXT_PUBLIC_GUESTBOOK_ADDRESS=${address} in Vercel to make it the shared guestbook.`);
+      await loadFeed(address);
     } catch (err: any) {
       console.error("Deploy failed:", err);
       const detail = err?.message || String(err);
@@ -66,19 +89,19 @@ export default function GuestBook({
     } finally {
       setIsDeploying(false);
     }
-  }, [walletAPI]);
+  }, [walletAPI, loadFeed]);
 
   const handleSetAddress = useCallback(() => {
     if (manualAddress.trim()) {
       const addr = manualAddress.trim();
       setStoredContractAddress(addr);
-      setMessages(getStoredMessages(addr));
       setContractAddressState(addr);
       setShowManualInput(false);
       setStatus("Contract address set!");
+      loadFeed(addr);
       setTimeout(() => setStatus(null), 3000);
     }
-  }, [manualAddress]);
+  }, [manualAddress, loadFeed]);
 
   const handlePostMessage = useCallback(async () => {
     if (!walletAPI || !newMessage.trim() || !contractAddress) return;
@@ -86,30 +109,23 @@ export default function GuestBook({
     setIsSubmitting(true);
     setStatus("Generating zero-knowledge proof...");
     try {
-      const seed = getOrCreateSeed();
-      const authorCommitment = await computeAuthorCommitment(seed);
-
       setStatus("Submitting transaction...");
-      const { txHash } = await postMessage(walletAPI, contractAddress, newMessage);
+      await postMessage(walletAPI, contractAddress, newMessage);
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          message: newMessage,
-          authorCommitment,
-          txHash,
-          postCount: messages.length + 1,
-        },
-      ]);
       setNewMessage("");
-      setStatus("Posted! Transaction submitted.");
+      setStatus("Posted! Refreshing the guestbook...");
+      // Re-read from chain so the new entry (and anyone else's) shows up.
+      await loadFeed(contractAddress);
+      setStatus("Posted! Your message is on-chain.");
       setTimeout(() => setStatus(null), 3000);
     } catch (err: any) {
       setStatus(`Failed to post: ${err.message}`);
     } finally {
       setIsSubmitting(false);
     }
-  }, [walletAPI, newMessage, messages.length, contractAddress]);
+  }, [walletAPI, newMessage, contractAddress, loadFeed]);
+
+  const total = entries.length;
 
   return (
     <div className="max-w-2xl mx-auto p-6">
@@ -127,6 +143,8 @@ export default function GuestBook({
             Connect your Lace wallet to post.
           </div>
         ) : !contractAddress ? (
+          // No canonical address configured yet: allow deploying from the
+          // frontend or pointing at an existing contract.
           <div className="space-y-4">
             <div className="p-4 border-4 border-black bg-yellow-100 font-bold uppercase">
               Deploy the guestbook contract or enter an existing address.
@@ -169,9 +187,6 @@ export default function GuestBook({
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="p-2 border-2 border-black bg-gray-100 text-xs font-mono">
-              Contract: {contractAddress.slice(0, 20)}...
-            </div>
             <textarea
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
@@ -192,8 +207,8 @@ export default function GuestBook({
 
         {status && (
           <div
-            className={`mt-4 p-3 border-4 border-black font-bold uppercase text-sm ${
-              status.includes("Failed") || status.includes("failed")
+            className={`mt-4 p-3 border-4 border-black font-bold uppercase text-sm break-words ${
+              status.includes("Failed") || status.includes("failed") || status.includes("Could not")
                 ? "bg-red-200"
                 : "bg-green-200"
             }`}
@@ -205,47 +220,47 @@ export default function GuestBook({
 
       <div>
         <h3 className="text-3xl font-black uppercase mb-6 inline-block border-b-4 border-[#D4AF37]">
-          Messages ({messages.length})
+          Messages ({total})
         </h3>
-        {messages.length === 0 && (
+        {isLoadingFeed && total === 0 && (
+          <p className="text-sm border-l-4 border-black pl-3">Loading the guestbook from chain...</p>
+        )}
+        {!isLoadingFeed && total === 0 && (
           <p className="text-sm border-l-4 border-black pl-3">
-            No messages yet. Connect your wallet and post the first one.
+            No messages yet. Be the first to post.
           </p>
         )}
         <div className="space-y-4">
-          {messages.map((msg, index) => (
-            <div
-              key={index}
-              className="p-4 border-4 border-black border-l-8 border-l-[#D4AF37] bg-white"
-            >
-              <p className="font-mono text-sm mb-4 whitespace-pre-wrap">
-                {msg.message}
-              </p>
-              <div className="flex flex-wrap gap-4 text-xs border-t-2 border-black pt-2">
-                <div>
-                  <span className="font-bold uppercase">Author: </span>
-                  <span className="font-mono bg-gray-100 px-1">
-                    {msg.authorCommitment.slice(0, 16)}...
-                  </span>
-                </div>
-                <div>
-                  <span className="font-bold uppercase">Post: </span>
-                  <span className="font-mono">#{msg.postCount}</span>
-                </div>
-                <div>
-                  <span className="font-bold uppercase">Tx: </span>
-                  <a
-                    href={`${EXPLORER_URL}/transactions/${msg.txHash.startsWith("0x") ? msg.txHash : `0x${msg.txHash}`}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono underline hover:bg-gray-100 px-1"
-                  >
-                    {msg.txHash.slice(0, 16)}...
-                  </a>
+          {entries.map((entry, index) => {
+            // entries are newest-first, so the first row is the highest number.
+            const postNumber = total - index;
+            const isMine = myCommitment != null && entry.author === myCommitment;
+            return (
+              <div
+                key={`${entry.author}-${postNumber}`}
+                className="p-4 border-4 border-black border-l-8 border-l-[#D4AF37] bg-white"
+              >
+                <p className="font-mono text-sm mb-4 whitespace-pre-wrap">
+                  {entry.message}
+                </p>
+                <div className="flex flex-wrap gap-4 text-xs border-t-2 border-black pt-2">
+                  <div>
+                    <span className="font-bold uppercase">Author: </span>
+                    <span className="font-mono bg-gray-100 px-1">
+                      {entry.author.slice(0, 16)}...
+                    </span>
+                    {isMine && (
+                      <span className="ml-2 font-bold uppercase bg-[#D4AF37] px-1">You</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-bold uppercase">Post: </span>
+                    <span className="font-mono">#{postNumber}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

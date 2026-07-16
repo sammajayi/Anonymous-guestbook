@@ -6,15 +6,17 @@ import CompactStandardLibrary;
 // Everything below is written to the blockchain and is readable by anyone
 // through the indexer.
 
-// The guestbook message, published for all to see.
-export ledger message: Opaque<"string">;
+// One guestbook entry, stored publicly on-chain.
+struct GuestbookEntry {
+  message: Opaque<"string">,
+  author: Bytes<32>,
+}
 
-// An anonymous commitment to the author. This is a hash derived from the
-// author's private secret key — it proves posts share a consistent author
-// without ever revealing who that author is.
-export ledger author: Bytes<32>;
+// Full history of every post. pushFront prepends, so the list is
+// newest-first when iterated.
+export ledger entries: List<GuestbookEntry>;
 
-// How many messages have been posted so far.
+// How many messages have been posted so far (also equals entries.length()).
 export ledger postCount: Counter;
 
 // ── Private witness ──────────────────────────────────────────────────
@@ -29,14 +31,16 @@ export circuit authorCommitment(sk: Bytes<32>): Bytes<32> {
     return persistentHash<Vector<2, Bytes<32>>>([pad(32, "guestbook:author:"), sk]);
 }
 
-// Post a message to the guestbook.
+// Append a message to the shared guestbook.
 export circuit storeMessage(customMessage: Opaque<"string">): [] {
     const sk = authorSecretKey();
 
     // disclose() is deliberate here: we choose to publish the message and the
     // derived author commitment. The raw secret key `sk` is used only to build
     // the proof and is NEVER disclosed to the chain.
-    author = disclose(authorCommitment(sk));
-    message = disclose(customMessage);
+    entries.pushFront(disclose(GuestbookEntry {
+        message: customMessage,
+        author: authorCommitment(sk),
+    }));
     postCount.increment(1);
 }
