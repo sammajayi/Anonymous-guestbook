@@ -235,7 +235,7 @@ export async function deployGuestbook(walletAPI: any): Promise<string> {
   };
 
   const deployed = await deployContract(providers as any, {
-    compiledContract,
+    compiledContract: compiledContract as any,
     args: [],
     privateStateId: 'guestbook-private-state',
     initialPrivateState: { authorSecretKey },
@@ -317,7 +317,7 @@ export async function postMessage(
   };
 
   const contract = await findDeployedContract(providers as any, {
-    compiledContract,
+    compiledContract: compiledContract as any,
     contractAddress,
     privateStateId: 'guestbook-private-state',
     initialPrivateState: { authorSecretKey },
