@@ -1,0 +1,1 @@
+- [Guestbook shared-feed state](guestbook-shared-feed-state.md) — universal read works; Lace browser-submit relay bug open

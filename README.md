@@ -124,6 +124,16 @@ deploy flow so you can deploy the contract straight from the frontend — then s
 the printed address as `NEXT_PUBLIC_GUESTBOOK_ADDRESS` to lock it in. Reads use
 the preview indexer directly, so the feed loads even before a wallet connects.
 
+**Posting needs a funded Lace account.** Reading the feed needs no wallet, but
+posting a message is a transaction signed and relayed by **Lace**, so:
+
+- Log in to the Lace extension and switch it to the **Preview** network. A
+  logged-out or wrong-network wallet fails at submission with an opaque error.
+- The Lace account needs its own preview **tNIGHT** (from the faucet), which
+  generates the **DUST** used to pay transaction fees. This is a *different*
+  wallet from the seed-derived one the `npm run` CLI scripts use — funding one
+  does not fund the other.
+
 ### Interacting with the contract
 
 ```bash
@@ -149,11 +159,11 @@ screenshots below.
 
 ### Successful compile (circuits listed)
 
-![Compile output](docs/compile.png)
+![Compile output](docs/deployment.png)
 
 ### Contract deployed with address
 
-![Deploy output](docs/deploy.png)
+![Deploy output](docs/deployment.png)
 
 ## Available scripts
 

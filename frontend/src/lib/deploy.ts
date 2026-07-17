@@ -82,6 +82,45 @@ function assertValidUri(value: unknown, field: string): string {
   return value;
 }
 
+function extractWalletSubmissionDetail(error: unknown): string | null {
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  let depth = 0;
+
+  while (current && depth < 8 && !seen.has(current)) {
+    seen.add(current);
+
+    const candidates = [
+      (current as any)?.message,
+      (current as any)?.name,
+      (current as any)?.failure?.message,
+      (current as any)?.failure?.name,
+      (current as any)?.cause?.message,
+      (current as any)?.cause?.name,
+      (current as any)?.cause?.failure?.message,
+      (current as any)?.cause?.failure?.name,
+    ].filter((value): value is string => typeof value === 'string' && value.trim() !== '');
+
+    if (candidates.length > 0) {
+      return candidates[0];
+    }
+
+    current = (current as any)?.cause ?? (current as any)?.failure ?? (current as any)?.error;
+    depth += 1;
+  }
+
+  return null;
+}
+
+function formatWalletSubmissionError(error: unknown): string {
+  const detail = extractWalletSubmissionDetail(error);
+  if (detail && detail !== 'Error') {
+    return `Wallet could not submit the transaction: ${detail}`;
+  }
+
+  return 'Wallet could not submit the transaction. This usually means the wallet rejected the tx because it has no DUST, is on the wrong network, or the proof server is unavailable.';
+}
+
 // JSON can't round-trip Uint8Array (private states and signing keys hold them),
 // so tag them on the way out and rebuild them on the way in.
 function jsonReplacer(_key: string, value: any) {
@@ -266,7 +305,7 @@ export async function deployGuestbook(walletAPI: any): Promise<string> {
       try {
         await walletAPI.submitTransaction(toHex(tx.serialize()));
       } catch (e: any) {
-        throw new Error(`Wallet could not submit the transaction: ${e?.message || e?.name || 'submission rejected'}`);
+        throw new Error(formatWalletSubmissionError(e));
       }
       return tx.identifiers?.()[0] || '';
     },
@@ -348,7 +387,7 @@ export async function postMessage(
       try {
         await walletAPI.submitTransaction(toHex(tx.serialize()));
       } catch (e: any) {
-        throw new Error(`Wallet could not submit the transaction: ${e?.message || e?.name || 'submission rejected'}`);
+        throw new Error(formatWalletSubmissionError(e));
       }
       return tx.identifiers?.()[0] || '';
     },

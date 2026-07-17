@@ -186,16 +186,23 @@ async function main() {
         }
 
         case '2': {
-          console.log('\n  Reading message from blockchain...');
+          console.log('\n  Reading messages from blockchain...');
           try {
             const contractState = await providers.publicDataProvider.queryContractState(deployment.address);
             if (contractState) {
               const ledgerState = Guestbook.ledger(contractState.data);
-              const message = Buffer.from(ledgerState.message).toString();
-              const author = Buffer.from(ledgerState.author).toString('hex');
-              console.log(`\n  📋 Current message: "${message}"`);
-              console.log(`  🕵  Anonymous author: ${author.slice(0, 16)}…`);
-              console.log(`  🔢 Total posts: ${ledgerState.postCount.toString()}\n`);
+              // entries is a List<GuestbookEntry>, newest-first. Iterate it.
+              const entries = [...ledgerState.entries];
+              console.log(`\n  🔢 Total posts: ${ledgerState.postCount.toString()}\n`);
+              if (entries.length === 0) {
+                console.log('  📋 No messages yet (contract state empty)\n');
+              } else {
+                entries.forEach((entry: any, i: number) => {
+                  const author = Buffer.from(entry.author).toString('hex');
+                  console.log(`  #${entries.length - i} "${entry.message}"  — ${author.slice(0, 16)}…`);
+                });
+                console.log('');
+              }
             } else {
               console.log('\n  📋 No message found (contract state empty)\n');
             }
