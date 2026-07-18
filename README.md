@@ -5,7 +5,13 @@ anyone can post a public message, but the *identity* of each author stays
 private. The contract proves every post came from a real, consistent author —
 without ever revealing who that author is.
 
-## Product idea
+## Demo
+
+Live app: https://anonymous-guestbook.vercel.app/
+
+Watch a walkthrough: https://www.loom.com/share/3e6591ef01b245419b49a341e4bdfccd
+
+## Overview
 
 **Anonymous Guestbook** is a public message board where reputation is portable
 but identity is not. Each visitor signs their post with a secret key that never
@@ -140,10 +146,10 @@ posting a message is a transaction signed and relayed by **Lace**, so:
 npm run cli            # menu: store a message, read message/author/post count
 ```
 
-## Deploying to a public testnet (Preprod)
+## Deploying to a public testnet (Preview)
 
 ```bash
-npm run setup -- --network preprod
+npm run setup -- --network preview
 ```
 
 On first run this generates a fresh wallet, prints its address and the faucet

@@ -70,3 +70,4 @@ opencode.json
 frontend/node_modules/
 frontend/.next/
 frontend/out/
+memory/
