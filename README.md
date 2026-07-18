@@ -11,6 +11,16 @@ Live app: https://anonymous-guestbook.vercel.app/
 
 Watch a walkthrough: https://www.loom.com/share/3e6591ef01b245419b49a341e4bdfccd
 
+## Screenshots
+
+### Successful compile (circuits listed)
+
+![Compile output](docs/deployment.png)
+
+### Contract deployed with address
+
+![Deploy output](docs/deployment.png)
+
 ## Overview
 
 **Anonymous Guestbook** is a public message board where reputation is portable
@@ -160,16 +170,6 @@ screenshots below.
 > **⚠ Local devnet only:** the `undeployed` network uses a well-known genesis
 > seed (`0000…0001`). Never use that seed against a network that holds real
 > value.
-
-## Screenshots
-
-### Successful compile (circuits listed)
-
-![Compile output](docs/deployment.png)
-
-### Contract deployed with address
-
-![Deploy output](docs/deployment.png)
 
 ## Available scripts
 
