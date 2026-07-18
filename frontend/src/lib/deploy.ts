@@ -7,6 +7,18 @@ const WALLET_SEED_KEY = 'midnight-guestbook-seed';
 export const PREVIEW_INDEXER_URI = 'https://indexer.preview.midnight.network/api/v4/graphql';
 export const PREVIEW_INDEXER_WS_URI = 'wss://indexer.preview.midnight.network/api/v4/graphql/ws';
 
+// Base URL for linking a transaction hash to the block explorer. The final URL
+// is `${EXPLORER_TX_BASE}${txHash}`. Overridable via NEXT_PUBLIC_EXPLORER_TX_URL
+// so a different network's explorer can be swapped in without a code change.
+export const EXPLORER_TX_BASE =
+  process.env.NEXT_PUBLIC_EXPLORER_TX_URL || 'https://preview.midnightexplorer.com/transactions/';
+
+// Build the explorer link for a transaction hash, or null if we have no hash.
+export function explorerTxUrl(txHash: string): string | null {
+  if (!txHash) return null;
+  return `${EXPLORER_TX_BASE}${txHash}`;
+}
+
 // The single canonical contract every visitor reads from and writes to. Set in
 // Vercel as NEXT_PUBLIC_GUESTBOOK_ADDRESS after the contract is deployed once.
 // When present, the app hides the deploy UI and uses this address for everyone.
@@ -14,10 +26,102 @@ export function getCanonicalContractAddress(): string | null {
   return process.env.NEXT_PUBLIC_GUESTBOOK_ADDRESS || null;
 }
 
-// A single guestbook entry as read from on-chain ledger state.
+// A single guestbook entry as read from on-chain ledger state, enriched with
+// the transaction metadata for the on-chain call that created it.
 export interface FeedEntry {
   message: string;
   author: string; // hex-encoded 32-byte author commitment
+  txHash: string | null; // on-chain transaction hash of the storeMessage call
+  timestamp: number | null; // block UNIX timestamp in milliseconds, or null if unknown
+}
+
+// One on-chain storeMessage call, as reported by the indexer's contract-action
+// stream. Ordered oldest-first (block order), which is the reverse of the
+// ledger `entries` list (newest-first via pushFront).
+interface StoreMessageAction {
+  txHash: string;
+  timestamp: number; // block UNIX timestamp in milliseconds
+  blockHeight: number;
+}
+
+// Drain the indexer's contractActions subscription for a contract and return
+// every storeMessage call in block order (oldest-first), each carrying its
+// transaction hash and the block timestamp. The ledger itself stores no
+// timestamp, so this is the only source of "when was this posted" and the
+// per-message transaction hash for tracking on-chain.
+//
+// The subscription streams historical actions from block 0, then stays open
+// waiting for new ones. We can't know the exact count up front, so we resolve
+// once the stream goes quiet (no new action within `quietMs`), with a hard
+// `maxMs` ceiling as a backstop.
+async function readStoreMessageActions(
+  contractAddress: string,
+  { quietMs = 1500, maxMs = 20000 }: { quietMs?: number; maxMs?: number } = {},
+): Promise<StoreMessageAction[]> {
+  if (!contractAddress) return [];
+  const { createClient } = await import('graphql-ws');
+
+  const query = `subscription($address: HexEncoded!, $offset: BlockOffset) {
+    contractActions(address: $address, offset: $offset) {
+      __typename
+      transaction { hash block { height timestamp } }
+      ... on ContractCall { entryPoint }
+    }
+  }`;
+
+  return new Promise<StoreMessageAction[]>((resolve) => {
+    const actions: StoreMessageAction[] = [];
+    const client = createClient({ url: PREVIEW_INDEXER_WS_URI });
+
+    let quietTimer: ReturnType<typeof setTimeout> | null = null;
+    let dispose: (() => void) | null = null;
+    let settled = false;
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      if (quietTimer) clearTimeout(quietTimer);
+      clearTimeout(hardTimer);
+      try {
+        dispose?.();
+      } catch {
+        // ignore teardown races
+      }
+      client.dispose();
+      resolve(actions);
+    };
+
+    // Once the historical backlog stops arriving, assume we've caught up.
+    const bumpQuiet = () => {
+      if (quietTimer) clearTimeout(quietTimer);
+      quietTimer = setTimeout(finish, quietMs);
+    };
+
+    const hardTimer = setTimeout(finish, maxMs);
+    bumpQuiet();
+
+    dispose = client.subscribe(
+      { query, variables: { address: contractAddress, offset: { height: 0 } } },
+      {
+        next: (result: any) => {
+          const action = result?.data?.contractActions;
+          bumpQuiet();
+          if (!action || action.entryPoint !== 'storeMessage') return;
+          const tx = action.transaction;
+          if (!tx?.hash || !tx.block) return;
+          actions.push({
+            txHash: tx.hash,
+            timestamp: tx.block.timestamp,
+            blockHeight: tx.block.height,
+          });
+        },
+        // Any transport/GraphQL error: resolve with whatever we have so the
+        // feed still renders (messages just lose tx/time enrichment).
+        error: () => finish(),
+        complete: () => finish(),
+      },
+    );
+  });
 }
 
 // Read the shared guestbook feed directly from chain. No wallet needed — the
@@ -38,16 +142,40 @@ export async function readGuestbook(contractAddress: string): Promise<FeedEntry[
   const state = await publicDataProvider.queryContractState(contractAddress);
   if (!state) return []; // contract not found / not yet indexed
 
-  const decoded: any = ledger(state.data);
+  // Fetch ledger entries (message + author) and the on-chain transaction
+  // metadata (tx hash + block timestamp) in parallel, then correlate them.
+  const [decoded, actions] = await Promise.all([
+    Promise.resolve(ledger(state.data) as any),
+    readStoreMessageActions(contractAddress),
+  ]);
+
+  // Ledger `entries` are newest-first (pushFront); `actions` are oldest-first
+  // (block order). Reverse the actions so index 0 lines up with the newest
+  // entry. The i-th newest post corresponds to the i-th action from the end.
+  const actionsNewestFirst = [...actions].reverse();
+
+  // `decoded.entries` is an on-chain List — iterable via for...of but not a
+  // real array (no .forEach / .length). Materialize it so we can index and
+  // count it for positional correlation with the actions.
+  const entries: any[] = Array.from(decoded.entries as Iterable<any>);
+
+  // Only trust positional correlation when the counts match exactly.
+  const aligned = actionsNewestFirst.length === entries.length;
+
   const feed: FeedEntry[] = [];
-  for (const entry of decoded.entries) {
+  entries.forEach((entry, index) => {
+    // If counts drift (indexer lag mid-drain), the message still renders —
+    // it just shows no tx/time rather than a wrong one.
+    const action = aligned ? actionsNewestFirst[index] : undefined;
     feed.push({
       message: entry.message,
       author: Array.from(entry.author as Uint8Array)
         .map((b) => b.toString(16).padStart(2, '0'))
         .join(''),
+      txHash: action?.txHash ?? null,
+      timestamp: action?.timestamp ?? null,
     });
-  }
+  });
   return feed;
 }
 

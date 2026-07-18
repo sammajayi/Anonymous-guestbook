@@ -10,8 +10,21 @@ import {
   postMessage,
   computeAuthorCommitment,
   readGuestbook,
+  explorerTxUrl,
   type FeedEntry,
 } from "../../lib/deploy";
+
+// Format a block UNIX timestamp (ms) as an absolute local date/time, e.g.
+// "Jul 17, 2026, 8:47 AM". Uses the viewer's locale and timezone.
+function formatPostedAt(timestamp: number): string {
+  return new Date(timestamp).toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
 export default function GuestBook({
   walletAPI,
@@ -235,6 +248,7 @@ export default function GuestBook({
             // entries are newest-first, so the first row is the highest number.
             const postNumber = total - index;
             const isMine = myCommitment != null && entry.author === myCommitment;
+            const txUrl = entry.txHash ? explorerTxUrl(entry.txHash) : null;
             return (
               <div
                 key={`${entry.author}-${postNumber}`}
@@ -257,6 +271,32 @@ export default function GuestBook({
                     <span className="font-bold uppercase">Post: </span>
                     <span className="font-mono">#{postNumber}</span>
                   </div>
+                  {entry.timestamp != null && (
+                    <div>
+                      <span className="font-bold uppercase">Posted: </span>
+                      <span className="font-mono">{formatPostedAt(entry.timestamp)}</span>
+                    </div>
+                  )}
+                  {entry.txHash && (
+                    <div>
+                      <span className="font-bold uppercase">Tx: </span>
+                      {txUrl ? (
+                        <a
+                          href={txUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono bg-gray-100 px-1 underline hover:bg-[#D4AF37]"
+                          title={entry.txHash}
+                        >
+                          {entry.txHash.slice(0, 16)}...
+                        </a>
+                      ) : (
+                        <span className="font-mono bg-gray-100 px-1" title={entry.txHash}>
+                          {entry.txHash.slice(0, 16)}...
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             );
