@@ -21,6 +21,10 @@ Watch a walkthrough: https://www.loom.com/share/3e6591ef01b245419b49a341e4bdfccd
 
 ![Deploy output](docs/deployment.png)
 
+
+## Contract Address on the Preview
+[Link to contract address](https://preview.midnightexplorer.com/contracts/0xea9dbaedb92052dd2995d2df7915731685bb8931aa07ac2b486759937a8ee1c8)
+
 ## Overview
 
 **Anonymous Guestbook** is a public message board where reputation is portable
